@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/discovery", "destination": "/api/discovery" },
+    { "source": "/tools/:path*", "destination": "/api/tools/:path*" }
+  ]
+}
