@@ -19,7 +19,7 @@
 
 import yaml from "js-yaml";
 
-/** ---------- small utilities ---------- **/
+/** CORS */
 
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -28,7 +28,7 @@ function setCors(res) {
 }
 
 function readParams(reqBody) {
-  // Opal sometimes sends { parameters: { ... } }
+  
   if (!reqBody) return {};
   if (reqBody.parameters && typeof reqBody.parameters === "object") return reqBody.parameters;
   return reqBody;
@@ -42,11 +42,11 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-/** ---------- 1) Extract OpenAPI URL from user_request ---------- **/
+/** Extract OpenAPI URL from user_request */
 function extractOpenApiUrl(text) {
   if (!text || typeof text !== "string") return null;
 
-  // Conservative: only consider URLs that likely point to OpenAPI/Swagger docs/specs.
+  // Only consider URLs that likely point to OpenAPI/Swagger docs/specs.
   // Matches:
   // - contains openapi/swagger
   // - ends with .json/.yaml/.yml
@@ -72,7 +72,7 @@ function extractOpenApiUrl(text) {
   return likely || null;
 }
 
-/** ---------- 2) Fetch + parse spec (JSON or YAML) ---------- **/
+/** Fetch + parse spec (JSON or YAML) */
 async function fetchSpec(specUrl) {
   const r = await fetch(specUrl, {
     method: "GET",
@@ -90,7 +90,7 @@ async function fetchSpec(specUrl) {
   return yaml.load(text);
 }
 
-/** ---------- 3) Extract endpoints from OpenAPI ---------- **/
+/** Extract endpoints from OpenAPI */
 function extractEndpoints(openapi) {
   const paths = openapi?.paths || {};
   const endpoints = [];
@@ -122,7 +122,7 @@ function extractEndpoints(openapi) {
   return endpoints;
 }
 
-/** ---------- 4) Extract "capabilities" from user_request ---------- **/
+/** Extract "capabilities" from user_request */
 const STOPWORDS = new Set([
   "we", "want", "to", "and", "or", "the", "a", "an", "of", "for", "with", "into",
   "our", "system", "tool", "platform", "integrate", "integration", "support",
@@ -151,13 +151,13 @@ function splitIntoCandidatePhrases(text) {
   const phrases = [];
 
   for (const line of lines) {
-    // If it looks like a capability list, split aggressively.
+    // If capability list, split aggressively
     const parts = line
       .split(/;|,|\u2022|\||\/|\band\b|\bor\b/i)
       .map((p) => p.trim())
       .filter(Boolean);
 
-    // Keep both the whole line and its parts (helps if user writes prose)
+    
     phrases.push(line, ...parts);
   }
 
@@ -178,10 +178,10 @@ function cleanCapability(phrase) {
   s = s.replace(/^so that\s+/i, "");
   s = s.replace(/^we (can|need to|want to)\s+/i, "");
   s = s.replace(/^\b(can|need to|want to|must)\b\s+/i, "");
-  s = s.replace(/\s+\(.*?\)\s*/g, " "); // remove short parenthetical clutter
+  s = s.replace(/\s+\(.*?\)\s*/g, " "); 
   s = s.replace(/\s+/g, " ").trim();
 
-  // Capitalize first letter for nice display
+  
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -193,10 +193,10 @@ function extractCapabilities(userRequest, maxCapabilities = 25) {
     .filter(looksLikeCapability)
     .map(cleanCapability);
 
-  // De-duplicate and cap
+  // De-duplicate
   const unique = uniq(candidates);
 
-  // If user wrote no clear action phrases, fallback to a few “best guess” statements
+  // If no clear action phrases, fallback to these statements
   const fallback = unique.length ? unique : [
     "Read data from the target system",
     "Write data to the target system",
@@ -206,7 +206,7 @@ function extractCapabilities(userRequest, maxCapabilities = 25) {
   return fallback.slice(0, clamp(maxCapabilities, 5, 60));
 }
 
-/** ---------- 5) Match capabilities to endpoints ---------- **/
+/** Match capabilities to endpoints */
 
 function tokenize(s) {
   return (s || "")
@@ -223,7 +223,7 @@ function inferPreferredMethods(capability) {
   if (c.includes("update") || c.includes("edit")) return ["PUT", "PATCH"];
   if (c.includes("create") || c.includes("add") || c.includes("upload") || c.includes("send") || c.includes("post")) return ["POST"];
   if (c.includes("list") || c.includes("get") || c.includes("fetch") || c.includes("read") || c.includes("retrieve") || c.includes("search")) return ["GET"];
-  // webhooks/events usually come in via POST callbacks
+  
   if (c.includes("webhook") || c.includes("event") || c.includes("callback") || c.includes("receive") || c.includes("listen")) return ["POST", "GET"];
   return [];
 }
@@ -245,14 +245,14 @@ function scoreMatch(capabilityTokens, ep, preferredMethods) {
   // Method bonus if method aligns with inferred action
   const methodBonus = preferredMethods.length && preferredMethods.includes(ep.method) ? 0.15 : 0;
 
-  // Special-case: webhook/event/callback
+  // Webhook/event/callback
   const isWebhookCap = capabilityTokens.some((t) => ["webhook", "event", "callback"].includes(t));
   const webhookBonus =
     isWebhookCap && (text.includes("webhook") || text.includes("event") || text.includes("callback") || text.includes("hook"))
       ? 0.25
       : 0;
 
-  // Special-case: search/list
+  // Search/list
   const isSearchCap = capabilityTokens.some((t) => ["search", "query", "find", "list"].includes(t));
   const searchBonus =
     isSearchCap && (text.includes("search") || text.includes("query") || text.includes("find") || text.includes("list"))
@@ -263,13 +263,13 @@ function scoreMatch(capabilityTokens, ep, preferredMethods) {
 }
 
 function coverageLabel(confidence) {
-  // Tuned for judge-friendly classification
+  
   if (confidence >= 0.75) return "full";
   if (confidence >= 0.45) return "partial";
   return "missing";
 }
 
-/** ---------- Main handler ---------- **/
+/** Main handler */
 export default async function handler(req, res) {
   setCors(res);
 
@@ -284,7 +284,7 @@ export default async function handler(req, res) {
     try {
       body = JSON.parse(body);
     } catch {
-      // ignore; handled below
+      // Handled below
     }
   }
 
@@ -307,11 +307,11 @@ export default async function handler(req, res) {
     });
   }
 
-  // 1) Find OpenAPI URL
+  // Find OpenAPI URL
   const spec_url = extractOpenApiUrl(user_request);
 
   if (!spec_url) {
-    // No spec URL => produce a matrix with unknown evidence
+    // No spec URL > produce a matrix with unknown evidence
     const extracted_capabilities = extractCapabilities(user_request, max_capabilities);
 
     const matrix = extracted_capabilities.map((cap) => ({
@@ -343,16 +343,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 2) Fetch and parse spec
+    // Fetch and parse spec
     const openapi = await fetchSpec(spec_url);
 
-    // 3) Extract endpoints
+    // Extract endpoints
     const endpoints = extractEndpoints(openapi);
 
-    // 4) Extract capabilities
+    // Extract capabilities
     const extracted_capabilities = extractCapabilities(user_request, max_capabilities);
 
-    // 5) Build matrix
+    // Build matrix
     const matrix = extracted_capabilities.map((cap) => {
       const tokens = tokenize(cap);
       const preferredMethods = inferPreferredMethods(cap);

@@ -1,8 +1,8 @@
 /**
  * /api/tools/opal_openapi_surface_map
  *
- * Tool execution endpoint for Optimizely Opal.
- * We'll rewrite /tools/opal_openapi_surface_map -> /api/tools/opal_openapi_surface_map via vercel.json.
+ * Tool execution endpoint for Opti Opal.
+ * /tools/opal_openapi_surface_map rewritten to /api/tools/opal_openapi_surface_map via vercel.json.
  *
  * Input JSON:
  * { "spec_url": "https://example.com/openapi.yaml" }
@@ -17,7 +17,7 @@
 
 import yaml from "js-yaml";
 
-/** CORS helper */
+/** CORS */
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -26,9 +26,6 @@ function setCors(res) {
 
 /**
  * Optional Bearer auth for tool execution (NOT for /discovery).
- * - If OPAL_TOOL_BEARER_TOKEN is set on Vercel, tool calls must include:
- *   Authorization: Bearer <token>
- * - If not set, tool is open (useful for fast testing).
  */
 function enforceBearer(req, res) {
   const expected = process.env.OPAL_TOOL_BEARER_TOKEN;
@@ -85,7 +82,7 @@ function extractAuthSchemes(openapi) {
   return schemes;
 }
 
-/** Extract base URLs from OpenAPI servers[] */
+/** Extract base URLs from OpenAPI servers */
 function extractBaseUrls(openapi) {
   const servers = Array.isArray(openapi?.servers) ? openapi.servers : [];
   return servers
@@ -95,8 +92,6 @@ function extractBaseUrls(openapi) {
 
 /**
  * Extract endpoints from OpenAPI paths.
- * Conservative: only method, path, and a short purpose line.
- * We do NOT attempt deep schema parsing to keep it robust and fast.
  */
 function extractEndpoints(openapi) {
   const paths = openapi?.paths || {};
@@ -140,7 +135,7 @@ function extractEndpoints(openapi) {
   return endpoints;
 }
 
-/** Normalize into a stable structure your agents can rely on */
+/** Normalize into a stable structure for agents */
 function normalizeSurfaceMap(openapi) {
   const title = openapi?.info?.title || "Unknown API";
   const version = openapi?.info?.version || null;
@@ -155,8 +150,8 @@ function normalizeSurfaceMap(openapi) {
 }
 
 /**
- * Some callers send parameters nested under { parameters: {...} }.
- * We accept both shapes to reduce integration friction.
+ * For params nested under { parameters: {...} }.
+ * Accepting both shapes to reduce integration friction.
  */
 function readParams(reqBody) {
   if (!reqBody) return {};
@@ -172,14 +167,11 @@ export default async function handler(req, res) {
 
   if (!enforceBearer(req, res)) return;
 
-  // Vercel parses JSON body for Node functions depending on content-type;
-  // but we also handle string bodies to be safe.
   let body = req.body;
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
     } catch {
-      // leave as-is; readParams will fail and return {}
     }
   }
 

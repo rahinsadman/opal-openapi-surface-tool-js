@@ -1,16 +1,10 @@
 /**
  * Opal Tool Registry Discovery endpoint
- * - Lists all tools (functions) exposed by this Vercel deployment.
- * - Opal uses this to discover and register available tool functions.
- *
- * IMPORTANT:
- * Opal expects `functions[].parameters` to be an ARRAY of parameter objects,
- * NOT a JSON Schema object. If you return JSON Schema, Opal may throw:
- * "'str' object has no attribute 'get'".
+ * - Lists all tools for Opal to consume.
  */
 
 export default function handler(req, res) {
-  // Basic CORS (safe for discovery)
+  // Basic CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -20,13 +14,13 @@ export default function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed. Use GET." });
   }
 
-  // Keep the manifest simple and maximally compatible.
+  
   return res.status(200).json({
-    // These metadata fields are fine to include, but Opal primarily uses `functions`.
+    // Metadata fields.
     name: "opal-custom-tools",
     version: "1.0.0",
     description:
-      "Custom Opal tools hosted on Vercel: OpenAPI surface mapping + capability coverage matrix.",
+      "Custom Opal tools: OpenAPI surface mapping + capability coverage matrix.",
 
     // IMPORTANT: parameters MUST be an array of objects
     functions: [
@@ -58,7 +52,7 @@ export default function handler(req, res) {
             type: "string",
             required: true,
             description:
-              "Single raw request text containing integration goals, capabilities, constraints, and (ideally) an OpenAPI/Swagger URL.",
+              "Single raw request text containing integration goals, capabilities, constraints, and an OpenAPI/Swagger URL.",
           },
           {
             name: "max_capabilities",
