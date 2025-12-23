@@ -2,6 +2,11 @@
  * Opal Tool Registry Discovery endpoint
  * - Lists all tools (functions) exposed by this Vercel deployment.
  * - Opal uses this to discover and register available tool functions.
+ *
+ * IMPORTANT:
+ * Opal expects `functions[].parameters` to be an ARRAY of parameter objects,
+ * NOT a JSON Schema object. If you return JSON Schema, Opal may throw:
+ * "'str' object has no attribute 'get'".
  */
 
 export default function handler(req, res) {
@@ -15,11 +20,15 @@ export default function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed. Use GET." });
   }
 
+  // Keep the manifest simple and maximally compatible.
   return res.status(200).json({
+    // These metadata fields are fine to include, but Opal primarily uses `functions`.
     name: "opal-custom-tools",
     version: "1.0.0",
     description:
       "Custom Opal tools hosted on Vercel: OpenAPI surface mapping + capability coverage matrix.",
+
+    // IMPORTANT: parameters MUST be an array of objects
     functions: [
       {
         name: "opal_openapi_surface_map",
@@ -27,17 +36,15 @@ export default function handler(req, res) {
           "Fetches an OpenAPI/Swagger spec from spec_url and returns a normalized endpoint inventory + auth hints.",
         http_method: "POST",
         endpoint: "/tools/opal_openapi_surface_map",
-        parameters: {
-          type: "object",
-          properties: {
-            spec_url: {
-              type: "string",
-              description:
-                "Public URL to an OpenAPI/Swagger spec file (JSON or YAML).",
-            },
+        parameters: [
+          {
+            name: "spec_url",
+            type: "string",
+            required: true,
+            description:
+              "Public URL to an OpenAPI/Swagger spec file (JSON or YAML).",
           },
-          required: ["spec_url"],
-        },
+        ],
       },
       {
         name: "opal_capability_coverage_matrix",
@@ -45,27 +52,29 @@ export default function handler(req, res) {
           "From a single user_request, finds an OpenAPI/Swagger URL, extracts endpoints, and returns a capability-to-endpoint coverage matrix with evidence.",
         http_method: "POST",
         endpoint: "/tools/opal_capability_coverage_matrix",
-        parameters: {
-          type: "object",
-          properties: {
-            user_request: {
-              type: "string",
-              description:
-                "Single raw request text containing integration goals, capabilities, constraints, and (ideally) an OpenAPI/Swagger URL.",
-            },
-            max_capabilities: {
-              type: "number",
-              description:
-                "Optional: cap the number of extracted capabilities (default 25).",
-            },
-            max_evidence_per_capability: {
-              type: "number",
-              description:
-                "Optional: cap evidence matches per capability (default 3).",
-            },
+        parameters: [
+          {
+            name: "user_request",
+            type: "string",
+            required: true,
+            description:
+              "Single raw request text containing integration goals, capabilities, constraints, and (ideally) an OpenAPI/Swagger URL.",
           },
-          required: ["user_request"],
-        },
+          {
+            name: "max_capabilities",
+            type: "number",
+            required: false,
+            description:
+              "Optional: cap the number of extracted capabilities (default 25).",
+          },
+          {
+            name: "max_evidence_per_capability",
+            type: "number",
+            required: false,
+            description:
+              "Optional: cap evidence matches per capability (default 3).",
+          },
+        ],
       },
     ],
   });
