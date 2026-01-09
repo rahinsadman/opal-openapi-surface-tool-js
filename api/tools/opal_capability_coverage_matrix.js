@@ -43,18 +43,43 @@ function clamp(n, min, max) {
 }
 
 /** Extract OpenAPI URL from user_request */
+/** Extract OpenAPI URL from user_request */
+function sanitizeUrl(raw) {
+  if (!raw || typeof raw !== "string") return null;
+
+  let u = raw.trim();
+
+  // Remove wrapping markdown/quotes/brackets
+  u = u.replace(/^<|>$/g, "");
+  u = u.replace(/^["'`]+|["'`]+$/g, "");
+  u = u.replace(/^\(|\)$/g, "");
+
+  // Remove trailing punctuation that commonly follows URLs in prose
+  // e.g. "...openapi.json." or "...openapi.json)," or "...openapi.json]"
+  u = u.replace(/[)\]}>,.;:!?]+$/g, "");
+
+  // Normalize "www." style URL to https://
+  if (u.startsWith("www.")) u = `https://${u}`;
+
+  // Validate it looks like a real URL
+  try {
+    // eslint-disable-next-line no-new
+    new URL(u);
+    return u;
+  } catch {
+    return null;
+  }
+}
+
 function extractOpenApiUrl(text) {
   if (!text || typeof text !== "string") return null;
 
-  // Only consider URLs that likely point to OpenAPI/Swagger docs/specs.
-  // Matches:
-  // - contains openapi/swagger
-  // - ends with .json/.yaml/.yml
-  // - includes /openapi or /swagger paths
-  const urlRegex = /(https?:\/\/[^\s'"<>]+)|((?:www\.)[^\s'"<>]+)/gi;
-  const candidates = (text.match(urlRegex) || []).map((u) =>
-    u.startsWith("www.") ? `https://${u}` : u
-  );
+  const urlRegex = /(https?:\/\/[^\s'"<>]+|www\.[^\s'"<>]+)/gi;
+  const rawCandidates = text.match(urlRegex) || [];
+
+  const candidates = rawCandidates
+    .map(sanitizeUrl)
+    .filter(Boolean);
 
   const likely = candidates.find((u) => {
     const lower = u.toLowerCase();
@@ -71,6 +96,7 @@ function extractOpenApiUrl(text) {
 
   return likely || null;
 }
+
 
 /** Fetch + parse spec (JSON or YAML) */
 async function fetchSpec(specUrl) {
